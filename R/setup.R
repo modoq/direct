@@ -92,24 +92,19 @@ show_claude_config <- function(project_path = getwd()) {
   
   project_path <- normalizePath(project_path, mustWork = FALSE)
   
-  # Determine R binary path
-  r_binary <- file.path(R.home("bin"), "R")
-  
   # Create JSON configuration
-  config <- sprintf('{
+  # Use Rscript and the new start_mcp_server() function
+  config <- '{
   "mcpServers": {
-    "r-mcptools": {
-      "command": "%s",
+    "r-direct": {
+      "command": "Rscript",
       "args": [
-        "--slave",
-        "--no-restore",
-        "--no-save",
         "-e",
-        "setwd(\\"%s\\"); mcptools::mcp_session()"
+        "direct::start_mcp_server()"
       ]
     }
   }
-}', r_binary, gsub("\\\\", "\\\\\\\\", project_path))
+}'
   
   message("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
   message("📋 CLAUDE DESKTOP CONFIGURATION")

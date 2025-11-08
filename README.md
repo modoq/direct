@@ -26,27 +26,33 @@
 # Install from GitHub
 remotes::install_github("modoq/direct")
 
-# Install dependencies if needed
-install.packages(c("ellmer", "rstudioapi", "mcptools"))
+# Install dependencies (if not already installed)
+install.packages(c("btw", "mcptools", "ellmer", "rstudioapi"))
 ```
 
 ## 🚀 Quick Start
 
-### 1. Initialize Your Project
+### 1. Install and Initialize
+
+**IMPORTANT:** After installation, you must initialize direct in each project where you want to use it.
 
 ```r
+# Load the package
 library(direct)
 
-# Initialize direct in your current RStudio project
+# Initialize in your current RStudio project
 init_project()
 ```
 
-This creates a `.Rprofile` that auto-loads the MCP server when you open the project.
+This creates a `.Rprofile` in your project that:
+- Automatically loads `direct`, `btw`, and `mcptools`
+- Registers your RStudio session with the MCP server
+- Shows you a welcome message with available tools
 
 ### 2. Configure Claude Desktop
 
 ```r
-# Display Claude Desktop configuration
+# Display the configuration you need
 show_claude_config()
 ```
 
@@ -56,19 +62,16 @@ Copy the displayed JSON configuration and add it to your Claude Desktop config f
 - **Windows**: `%APPDATA%\\Claude\\claude_desktop_config.json`  
 - **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
-Example configuration:
+The configuration will look like this:
 
 ```json
 {
   "mcpServers": {
-    "r-mcptools": {
-      "command": "/Library/Frameworks/R.framework/Versions/Current/Resources/bin/R",
+    "r-direct": {
+      "command": "Rscript",
       "args": [
-        "--slave",
-        "--no-restore",
-        "--no-save",
         "-e",
-        "setwd('/Users/yourname/projects/myproject'); mcptools::mcp_session()"
+        "direct::start_mcp_server()"
       ]
     }
   }
@@ -77,8 +80,16 @@ Example configuration:
 
 ### 3. Restart Everything
 
-1. **Restart RStudio** - So the new `.Rprofile` takes effect
-2. **Restart Claude Desktop** - So it loads the new MCP configuration
+1. **Restart RStudio** - Close and reopen your project so the `.Rprofile` takes effect
+2. **Restart Claude Desktop** - Completely quit and restart so it loads the MCP server
+
+You should see a welcome message in RStudio Console:
+```
+✅ Direct + btw session registered
+📁 Workspace: /path/to/your/project
+🎬 Direct tools: Active execution with security
+📊 btw tools: Passive observation and documentation
+```
 
 ### 4. Verify Setup
 
