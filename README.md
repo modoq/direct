@@ -159,6 +159,46 @@ update_plot_colors("my_plot", "gradient", "#FF0000", "#0000FF")
 - Files created only in workspace directory
 - Read-only operations for viewing data
 
+### Output Sanitization
+- Secrets automatically redacted before sending to AI (API keys, passwords, tokens)
+- Environment variable outputs filtered
+- Private key patterns removed
+
+### Audit Logging
+All tool executions are logged to `.direct/audit.log` with:
+- ✅ Full command (for forensic analysis)
+- ✅ PII-sanitized version (for safe sharing)
+- ✅ Timestamp, session ID, status
+- ✅ No automatic deletion (user control)
+
+```r
+# View recent audit entries (sanitized by default)
+show_audit()
+
+# View full commands (may contain PII)
+show_audit(sanitize = FALSE)
+
+# Export audit log (always sanitized)
+export_audit("audit_2025-11.csv")
+
+# Get audit statistics
+audit_stats()
+
+# Initialize/customize audit config
+init_audit_config()
+```
+
+The audit log is stored in `.direct/audit.log` (automatically added to `.gitignore`) and uses JSONL format for easy parsing.
+
+**PII Redaction**: The audit system automatically detects and redacts:
+- Email addresses
+- Names in quotes
+- Phone numbers
+- IBANs and credit card numbers
+- IP addresses and UUIDs
+
+Custom patterns can be added in `.direct/config.yml`.
+
 ## 📚 Usage with Claude Desktop
 
 Once configured, Claude can interact with your RStudio project:

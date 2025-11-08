@@ -16,6 +16,9 @@ Imports:
     ellmer,
     rstudioapi,
     btw,
-    mcptools
+    mcptools,
+    jsonlite
+Suggests:
+    yaml
 URL: https://github.com/modoq/direct
 BugReports: https://github.com/modoq/direct/issues

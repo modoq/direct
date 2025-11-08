@@ -60,8 +60,12 @@ init_project <- function(force = FALSE) {
   # Write .Rprofile
   writeLines(template_content, rprofile_path)
   
+  # Initialize audit configuration
+  init_audit_config()
+  
   message("✅ Project initialized successfully!")
   message("📁 Created: ", rprofile_path)
+  message("📁 Created: .direct/config.yml")
   message("")
   message("Next steps:")
   message("  1. Run show_claude_config() to get Claude Desktop configuration")

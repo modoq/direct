@@ -1,5 +1,6 @@
 # ============================================================================
 # MCP Tools for Claude Desktop + RStudio Integration
+# WITH AUDIT LOGGING
 # ============================================================================
 
 #' Path Validation Security Function
@@ -63,20 +64,36 @@ is_safe_path <- function(path, base_dir = getwd()) {
   })
 }
 
+#' Get current session ID
+#' 
+#' @return Integer session ID (defaults to 1 if not in MCP context)
+#' @keywords internal
+get_session_id <- function() {
+  # TODO: Implement proper session tracking
+  # For now, default to session 1
+  return(1L)
+}
+
 #' Execute R Code in RStudio Console
 #' 
 #' Executes R code with security checks to block dangerous operations.
+#' Logs all executions to audit log.
 #' 
 #' @param code Character string containing R code to execute
 #' @param echo Logical indicating whether to echo code in console (default: TRUE)
 #' @return Character string with execution status
 #' @export
 run_r_code <- function(code, echo = TRUE) {
+  session_id <- get_session_id()
+  start_time <- Sys.time()
+  
   if (!rstudioapi::isAvailable()) {
+    log_audit(session_id, "run_r_code", code, "error", 
+              error = "RStudio not available")
     return("Error: RStudio is not available.")
   }
   
-  # Warn about dangerous operations
+  # Check for dangerous operations
   dangerous_patterns <- c(
     "system\\(",
     "shell\\(",
@@ -89,6 +106,9 @@ run_r_code <- function(code, echo = TRUE) {
   
   for (pattern in dangerous_patterns) {
     if (grepl(pattern, code, perl = TRUE)) {
+      log_audit(session_id, "run_r_code", code, "blocked",
+                reason = paste("dangerous_pattern:", pattern))
+      
       warning_msg <- paste0(
         "⛔ WARNING: Potentially dangerous command detected!\n",
         "Pattern: ", pattern, "\n",
@@ -98,22 +118,51 @@ run_r_code <- function(code, echo = TRUE) {
     }
   }
   
-  rstudioapi::sendToConsole(code, execute = TRUE, echo = echo)
-  return("✅ Code executed")
+  # Warn about Sys.getenv
+  if (grepl("Sys\\.getenv", code, fixed = TRUE)) {
+    warning(
+      "[SECURITY WARNING] Sys.getenv() detected in code.\n",
+      "Output will be sanitized before sending to AI.",
+      call. = FALSE
+    )
+  }
+  
+  # Execute
+  tryCatch({
+    rstudioapi::sendToConsole(code, execute = TRUE, echo = echo)
+    
+    duration_ms <- as.numeric(difftime(Sys.time(), start_time, units = "secs")) * 1000
+    log_audit(session_id, "run_r_code", code, "success", 
+              duration_ms = round(duration_ms))
+    
+    return("✅ Code executed")
+    
+  }, error = function(e) {
+    log_audit(session_id, "run_r_code", code, "error",
+              error = e$message)
+    return(paste0("❌ Error: ", e$message))
+  })
 }
 
 #' Safe File Writing (Workspace Only)
 #' 
 #' Writes files only within the current R workspace. Blocks writing outside
 #' workspace and prevents overwriting existing files.
+#' Logs all write attempts to audit log.
 #' 
 #' @param filename Character string with filename (relative to workspace)
 #' @param content Character string with file content
 #' @return Character string with operation status
 #' @export
 safe_write_file <- function(filename, content) {
+  session_id <- get_session_id()
+  
   # Validate path
   if (!is_safe_path(filename)) {
+    log_audit(session_id, "safe_write_file", 
+              paste0("write to: ", filename), "blocked",
+              reason = "path_outside_workspace")
+    
     return(paste0(
       "⛔ ERROR: Writing outside workspace NOT allowed!\n",
       "Workspace: ", getwd(), "\n",
@@ -124,6 +173,10 @@ safe_write_file <- function(filename, content) {
   
   # Check if file already exists
   if (file.exists(filename)) {
+    log_audit(session_id, "safe_write_file",
+              paste0("write to: ", filename), "blocked",
+              reason = "file_exists")
+    
     return(paste0(
       "⚠️ WARNING: File already exists!\n",
       "File: ", filename, "\n",
@@ -135,6 +188,12 @@ safe_write_file <- function(filename, content) {
     writeLines(content, filename)
     abs_path <- normalizePath(filename)
     
+    # Log with file size
+    file_size <- file.size(filename)
+    log_audit(session_id, "safe_write_file",
+              paste0("write to: ", filename), "success",
+              file_size_bytes = file_size)
+    
     if (rstudioapi::isAvailable()) {
       msg <- sprintf("cat('✅ File created: %s\\n')", basename(filename))
       rstudioapi::sendToConsole(msg, execute = TRUE, echo = FALSE)
@@ -142,6 +201,9 @@ safe_write_file <- function(filename, content) {
     
     return(paste0("✅ File created:\n   ", abs_path))
   }, error = function(e) {
+    log_audit(session_id, "safe_write_file",
+              paste0("write to: ", filename), "error",
+              error = e$message)
     return(paste0("❌ Error writing file:\n   ", e$message))
   })
 }
@@ -150,12 +212,15 @@ safe_write_file <- function(filename, content) {
 #' 
 #' Writes R scripts, R Markdown, Quarto and other files with intelligent
 #' extension detection. Only appends .R for pure R scripts.
+#' Logs all write attempts to audit log.
 #' 
 #' @param filename Character string with filename (with extension)
 #' @param code Character string with file content
 #' @return Character string with operation status
 #' @export
 write_r_script <- function(filename, code) {
+  session_id <- get_session_id()
+  
   # INTELLIGENT FILE EXTENSION DETECTION
   # Do NOT append .R to these file types:
   special_extensions <- c(
@@ -188,6 +253,10 @@ write_r_script <- function(filename, code) {
   
   # Validate path
   if (!is_safe_path(filename)) {
+    log_audit(session_id, "write_r_script",
+              paste0("write ", filename), "blocked",
+              reason = "path_outside_workspace")
+    
     return(paste0(
       "⛔ ERROR: Script writing outside workspace NOT allowed!\n",
       "Workspace: ", getwd(), "\n",
@@ -205,6 +274,10 @@ write_r_script <- function(filename, code) {
   
   for (pattern in dangerous_patterns) {
     if (grepl(pattern, code, perl = TRUE)) {
+      log_audit(session_id, "write_r_script",
+                paste0("write ", filename), "blocked",
+                reason = paste("dangerous_code:", pattern))
+      
       return(paste0(
         "⛔ SECURITY WARNING: Dangerous code detected!\n",
         "Pattern: ", pattern, "\n",
@@ -214,6 +287,10 @@ write_r_script <- function(filename, code) {
   }
   
   if (file.exists(filename)) {
+    log_audit(session_id, "write_r_script",
+              paste0("write ", filename), "blocked",
+              reason = "file_exists")
+    
     return(paste0(
       "⚠️ WARNING: File already exists!\n",
       "File: ", filename
@@ -223,6 +300,14 @@ write_r_script <- function(filename, code) {
   tryCatch({
     writeLines(code, filename)
     abs_path <- normalizePath(filename)
+    
+    # Count lines for audit log
+    num_lines <- length(readLines(filename, warn = FALSE))
+    log_audit(session_id, "write_r_script",
+              paste0("wrote ", filename, " (", num_lines, " lines)"), 
+              "success",
+              file_size_bytes = file.size(filename),
+              num_lines = num_lines)
     
     if (rstudioapi::isAvailable()) {
       # Show appropriate message based on file type
@@ -247,6 +332,9 @@ write_r_script <- function(filename, code) {
       return(paste0("✅ File created:\n   ", abs_path))
     }
   }, error = function(e) {
+    log_audit(session_id, "write_r_script",
+              paste0("write ", filename), "error",
+              error = e$message)
     return(paste0("❌ Error:", e$message))
   })
 }
@@ -254,6 +342,7 @@ write_r_script <- function(filename, code) {
 #' Update Plot Colors
 #' 
 #' Updates ggplot2 color gradients for existing plot objects.
+#' Logs all color updates to audit log.
 #' 
 #' @param plot_variable Character string with name of plot variable
 #' @param color_type Character string: 'gradient' or 'manual'
@@ -262,11 +351,19 @@ write_r_script <- function(filename, code) {
 #' @return Character string with operation status
 #' @export
 update_plot_colors <- function(plot_variable, color_type, color_low, color_high) {
+  session_id <- get_session_id()
+  
   if (!rstudioapi::isAvailable()) {
+    log_audit(session_id, "update_plot_colors",
+              paste0("update ", plot_variable), "error",
+              error = "RStudio not available")
     return("❌ RStudio not available")
   }
   
   if (!color_type %in% c("gradient", "manual")) {
+    log_audit(session_id, "update_plot_colors",
+              paste0("update ", plot_variable), "error",
+              error = "invalid color_type")
     return("❌ color_type must be 'gradient' or 'manual'")
   }
   
@@ -275,13 +372,26 @@ update_plot_colors <- function(plot_variable, color_type, color_low, color_high)
     plot_variable, plot_variable, color_low, color_high
   )
   
-  rstudioapi::sendToConsole(code, execute = TRUE, echo = TRUE)
-  return(paste0("✅ Plot colors updated: ", plot_variable))
+  tryCatch({
+    rstudioapi::sendToConsole(code, execute = TRUE, echo = TRUE)
+    
+    log_audit(session_id, "update_plot_colors",
+              paste0("update ", plot_variable, " colors"), "success")
+    
+    return(paste0("✅ Plot colors updated: ", plot_variable))
+    
+  }, error = function(e) {
+    log_audit(session_id, "update_plot_colors",
+              paste0("update ", plot_variable), "error",
+              error = e$message)
+    return(paste0("❌ Error: ", e$message))
+  })
 }
 
 #' View Dataframe in RStudio Viewer
 #' 
 #' Opens a dataframe in the RStudio Viewer pane (read-only).
+#' Does NOT log to audit (read-only operation).
 #' 
 #' @param data_name Character string with name of dataframe
 #' @return Character string with operation status
@@ -292,13 +402,19 @@ view_dataframe <- function(data_name) {
   }
   
   code <- sprintf("View(%s)", data_name)
-  rstudioapi::sendToConsole(code, execute = TRUE, echo = TRUE)
-  return(paste0("✅ Dataframe opened: ", data_name))
+  
+  tryCatch({
+    rstudioapi::sendToConsole(code, execute = TRUE, echo = TRUE)
+    return(paste0("✅ Dataframe opened: ", data_name))
+  }, error = function(e) {
+    return(paste0("❌ Error: ", e$message))
+  })
 }
 
 #' Get Workspace Information
 #' 
 #' Returns information about the current R workspace (read-only).
+#' Does NOT log to audit (read-only operation).
 #' 
 #' @return Character string with workspace information
 #' @export
