@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "r-mcptools": {
+      "command": "/Library/Frameworks/R.framework/Versions/Current/Resources/bin/R",
+      "args": [
+        "--slave",
+        "--no-restore",
+        "--no-save",
+        "-e",
+        "setwd('/path/to/your/project'); mcptools::mcp_session()"
+      ]
+    }
+  }
+}
