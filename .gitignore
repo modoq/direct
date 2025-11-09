@@ -1,9 +1,8 @@
-SECURITY_NOTES.md
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
-*.Rproj
+direct.Rproj
 .DS_Store
 
 # direct audit logs (contain full commands, potentially PII)

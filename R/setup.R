@@ -4,10 +4,12 @@
 
 #' Initialize Direct in Current Project
 #' 
-#' Creates a .Rprofile file in the current project directory that loads
+#' Creates a .Rprofile and .Rproj file in the current project directory that loads
 #' the direct package and starts the MCP server when the project is opened.
+#' Also creates .direct/config.yml for audit configuration.
 #' 
 #' @param force Logical indicating whether to overwrite existing .Rprofile (default: FALSE)
+#' @param project_name Optional project name (default: basename of current directory)
 #' @return Invisible NULL
 #' @export
 #' @examples
@@ -15,12 +17,23 @@
 #' # Initialize direct in your project
 #' init_project()
 #' 
+#' # With custom project name
+#' init_project(project_name = "my-analysis")
+#' 
 #' # Force overwrite existing .Rprofile
 #' init_project(force = TRUE)
 #' }
-init_project <- function(force = FALSE) {
+init_project <- function(force = FALSE, project_name = NULL) {
   
-  rprofile_path <- file.path(getwd(), ".Rprofile")
+  project_dir <- getwd()
+  rprofile_path <- file.path(project_dir, ".Rprofile")
+  
+  # Determine project name
+  if (is.null(project_name)) {
+    project_name <- basename(project_dir)
+  }
+  
+  rproj_path <- file.path(project_dir, paste0(project_name, ".Rproj"))
   
   # Check if .Rprofile already exists
   if (file.exists(rprofile_path) && !force) {
@@ -60,17 +73,44 @@ init_project <- function(force = FALSE) {
   # Write .Rprofile
   writeLines(template_content, rprofile_path)
   
+  # Create .Rproj file if it doesn't exist
+  if (!file.exists(rproj_path)) {
+    rproj_content <- c(
+      "Version: 1.0",
+      "",
+      "RestoreWorkspace: Default",
+      "SaveWorkspace: Default",
+      "AlwaysSaveHistory: Default",
+      "",
+      "EnableCodeIndexing: Yes",
+      "UseSpacesForTab: Yes",
+      "NumSpacesForTab: 2",
+      "Encoding: UTF-8",
+      "",
+      "RnwWeave: Sweave",
+      "LaTeX: pdfLaTeX"
+    )
+    writeLines(rproj_content, rproj_path)
+    message("✅ Created: ", basename(rproj_path))
+  } else {
+    message("ℹ️  .Rproj file already exists: ", basename(rproj_path))
+  }
+  
   # Initialize audit configuration
   init_audit_config()
   
   message("✅ Project initialized successfully!")
   message("📁 Created: ", rprofile_path)
+  if (!file.exists(rproj_path)) {
+    message("📁 Created: ", basename(rproj_path))
+  }
   message("📁 Created: .direct/config.yml")
   message("")
   message("Next steps:")
-  message("  1. Run show_claude_config() to get Claude Desktop configuration")
-  message("  2. Add the configuration to Claude Desktop settings")
-  message("  3. Restart RStudio for changes to take effect")
+  message("  1. Close and reopen this project in RStudio")
+  message("     File → Recent Projects → ", basename(rproj_path))
+  message("  2. Run show_claude_config() to get Claude Desktop configuration")
+  message("  3. Add the configuration to Claude Desktop settings")
   message("  4. Restart Claude Desktop")
   
   invisible(NULL)
@@ -204,12 +244,19 @@ check_setup <- function() {
   message("")
   message("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
   
-  all_ok <- all(unlist(results[c("direct_installed", "mcptools_installed", "ellmer_installed")]))
+  # Check if packages are OK
+  packages_ok <- all(unlist(results[c("direct_installed", "mcptools_installed", "ellmer_installed")]))
   
-  if (all_ok) {
-    message("✅ Setup looks good!")
+  # Check if project is initialized
+  project_ok <- results$rprofile_exists
+  
+  if (packages_ok && project_ok) {
+    message("✅ Setup complete and ready to use!")
+  } else if (packages_ok && !project_ok) {
+    message("⚠️  Packages installed, but project not initialized")
+    message("   Run: init_project()")
   } else {
-    message("⚠️  Some issues found - see above for details")
+    message("⚠️  Some packages missing - see above for details")
   }
   
   message("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")

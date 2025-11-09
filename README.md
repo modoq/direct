@@ -40,14 +40,21 @@ install.packages(c("btw", "mcptools", "ellmer", "rstudioapi"))
 # Load the package
 library(direct)
 
-# Initialize in your current RStudio project
+# Create a new project directory (or navigate to existing one)
+dir.create("~/my-analysis-project")
+setwd("~/my-analysis-project")
+
+# Initialize direct in this project
 init_project()
 ```
 
-This creates a `.Rprofile` in your project that:
-- Automatically loads `direct`, `btw`, and `mcptools`
-- Registers your RStudio session with the MCP server
-- Shows you a welcome message with available tools
+This creates:
+- `.Rprofile` - Auto-loads direct when project opens
+- `<project-name>.Rproj` - RStudio project file (if none exists)
+- `.direct/config.yml` - Audit configuration
+
+**Important:** Close and reopen the project in RStudio for `.Rprofile` to take effect:
+- File → Recent Projects → Select your project
 
 ### 2. Configure Claude Desktop
 
@@ -80,7 +87,7 @@ The configuration will look like this:
 
 ### 3. Restart Everything
 
-1. **Restart RStudio** - Close and reopen your project so the `.Rprofile` takes effect
+1. **Close and reopen your project** - File → Recent Projects → Select your project
 2. **Restart Claude Desktop** - Completely quit and restart so it loads the MCP server
 
 You should see a welcome message in RStudio Console:
@@ -96,6 +103,17 @@ You should see a welcome message in RStudio Console:
 ```r
 # Check that everything is configured correctly
 check_setup()
+```
+
+Expected output when ready:
+```
+✅ direct package installed
+✅ mcptools package installed
+✅ ellmer package installed
+✅ .Rprofile exists in project
+✅ RStudio available
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Setup complete and ready to use!
 ```
 
 ## 🛠️ Available Tools
