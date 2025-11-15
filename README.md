@@ -11,6 +11,11 @@
 - **btw watches** 👁️ - Passive observation of workspace
 - **direct directs** 🎬 - Active execution and file operations
 
+---
+⚠️ **Alpha Version** – This software is in an early development stage and **should not be used in production**.
+
+---
+
 ## ✨ Features
 
 - ✅ **Safe Code Execution** - Run R code with security checks
